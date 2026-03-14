@@ -1,0 +1,5 @@
+{
+  "name": "SQLi injection UI",
+  "description": "An educational, simulated dashboard demonstrating the interface and concepts of a SQL injection vulnerability scanner.",
+  "requestFramePermissions": []
+}
