@@ -1,0 +1,69 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "User Profile",
+      "description": "Stores user information and preferences.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "The unique ID of the user." },
+        "email": { "type": "string", "format": "email", "description": "The user's email address." },
+        "displayName": { "type": "string", "description": "The user's display name." },
+        "photoURL": { "type": "string", "description": "The user's profile photo URL." },
+        "role": { "type": "string", "enum": ["admin", "user"], "description": "The user's role." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "When the profile was created." }
+      },
+      "required": ["uid", "email", "role"]
+    },
+    "Scan": {
+      "title": "Scan",
+      "description": "Represents a single SQLi scan session.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique scan ID." },
+        "userId": { "type": "string", "description": "The ID of the user who ran the scan." },
+        "targetUrl": { "type": "string", "description": "The target URL being scanned." },
+        "status": { "type": "string", "enum": ["idle", "scanning", "completed", "stopped"] },
+        "startTime": { "type": "string", "format": "date-time" },
+        "endTime": { "type": "string", "format": "date-time" },
+        "wafStatus": { "type": "string" },
+        "wafVendor": { "type": "string" },
+        "securityScore": { "type": "number" },
+        "verdict": { "type": "string" },
+        "findingsCount": { "type": "number" }
+      },
+      "required": ["id", "userId", "targetUrl", "status"]
+    },
+    "Finding": {
+      "title": "Finding",
+      "description": "A specific vulnerability found during a scan.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "scanId": { "type": "string" },
+        "userId": { "type": "string" },
+        "parameter": { "type": "string" },
+        "method": { "type": "string" },
+        "payload": { "type": "string" },
+        "confidence": { "type": "number" },
+        "severity": { "type": "string" },
+        "dbGuess": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "scanId", "userId", "parameter", "severity"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "User profile documents."
+    },
+    "/scans/{scanId}": {
+      "schema": "Scan",
+      "description": "Scan session documents."
+    },
+    "/scans/{scanId}/findings/{findingId}": {
+      "schema": "Finding",
+      "description": "Findings associated with a specific scan."
+    }
+  }
+}

@@ -1,0 +1,138 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users
+    // Document ID: userId (uid)
+    // Fields:
+    //   - uid: string (required)
+    //   - email: string (required, email format)
+    //   - displayName: string (optional)
+    //   - photoURL: string (optional)
+    //   - role: string (required, 'admin' or 'user')
+    //   - createdAt: timestamp (required)
+    //
+    // Collection: scans
+    // Document ID: scanId
+    // Fields:
+    //   - id: string (required)
+    //   - userId: string (required)
+    //   - targetUrl: string (required)
+    //   - status: string (required)
+    //   - startTime: timestamp (optional)
+    //   - endTime: timestamp (optional)
+    //   - wafStatus: string (optional)
+    //   - wafVendor: string (optional)
+    //   - securityScore: number (optional)
+    //   - verdict: string (optional)
+    //   - findingsCount: number (optional)
+    //
+    // Collection: scans/{scanId}/findings
+    // Document ID: findingId
+    // Fields:
+    //   - id: string (required)
+    //   - scanId: string (required)
+    //   - userId: string (required)
+    //   - parameter: string (required)
+    //   - method: string (required)
+    //   - payload: string (required)
+    //   - confidence: number (required)
+    //   - severity: string (required)
+    //   - dbGuess: string (required)
+    //   - timestamp: timestamp (required)
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isDocOwner() {
+      return isAuthenticated() && request.auth.uid == resource.data.userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+          (request.auth.token.email == "Rizwankhiljirk@gmail.com" && request.auth.token.email_verified == true));
+    }
+
+    function isValidEmail(email) {
+      return email is string && email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+    }
+
+    function hasOnlyAllowedFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+    function isValidUser(data) {
+      return data.uid is string && data.uid.size() > 0 &&
+             data.email is string && isValidEmail(data.email) &&
+             data.role in ['admin', 'user'] &&
+             data.createdAt is timestamp;
+    }
+
+    function isValidScan(data) {
+      return data.id is string && data.id.size() > 0 &&
+             data.userId is string && data.userId == request.auth.uid &&
+             data.targetUrl is string && data.targetUrl.size() > 0 &&
+             data.status in ['idle', 'scanning', 'completed', 'stopped'];
+    }
+
+    function isValidFinding(data) {
+      return data.id is string && data.id.size() > 0 &&
+             data.scanId is string && data.scanId.size() > 0 &&
+             data.userId is string && data.userId == request.auth.uid &&
+             data.parameter is string && data.parameter.size() > 0 &&
+             data.severity in ['Critical', 'High', 'Medium', 'Low', 'Info'];
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow create: if isAuthenticated() && isValidUser(request.resource.data) && 
+                    ((isOwner(userId) && request.resource.data.role == 'user') || isAdmin());
+      allow update: if isAuthenticated() && isValidUser(request.resource.data) && 
+                    ((isOwner(userId) && request.resource.data.role == resource.data.role) || isAdmin());
+      allow delete: if isAdmin();
+    }
+
+    match /scans/{scanId} {
+      allow read: if isDocOwner() || isAdmin();
+      allow create: if isAuthenticated() && isValidScan(request.resource.data);
+      allow update: if isAuthenticated() && isValidScan(request.resource.data) && (isDocOwner() || isAdmin());
+      allow delete: if isDocOwner() || isAdmin();
+
+      match /findings/{findingId} {
+        allow read: if isDocOwner() || isAdmin();
+        allow create: if isAuthenticated() && isValidFinding(request.resource.data);
+        allow update: if isAuthenticated() && isValidFinding(request.resource.data) && (isDocOwner() || isAdmin());
+        allow delete: if isDocOwner() || isAdmin();
+      }
+    }
+
+    match /test/connection {
+      allow read, write: if true;
+    }
+
+    match /test_connection/{docId} {
+      allow read, write: if true;
+    }
+  }
+}
